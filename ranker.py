@@ -6,7 +6,7 @@ import pandas as pd
 # ----- FUNCIONES AUXILIARES -----
 def buscar_top_10(genero, anio):
     """Busca las 10 mejores películas o series según género y año usando TMDb API."""
-    API_KEY_TMDB = "TU_API_KEY_TMDB"
+    API_KEY_TMDB = "3a3c143dfc0aa958fa949ef1ed7e9ddb"
     BASE_URL_TMDB = "https://api.themoviedb.org/3"
     
     genero_id = {
