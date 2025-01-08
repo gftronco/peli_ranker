@@ -2,96 +2,75 @@
 import streamlit as st
 import requests
 import pandas as pd
-from operator import itemgetter
-
-# ----- CONSTANTES Y VARIABLES GLOBALES -----
-API_KEY_TMDB = "TU_API_KEY_TMDB"
-BASE_URL_TMDB = "https://api.themoviedb.org/3"
-lista_contenido = []
 
 # ----- FUNCIONES AUXILIARES -----
-def buscar_pelicula_titulo(titulo):
-    """Busca películas o series por título en TMDb."""
-    url = f"{BASE_URL_TMDB}/search/movie?api_key={API_KEY_TMDB}&query={titulo}"
+def buscar_top_10(genero, anio):
+    """Busca las 10 mejores películas o series según género y año usando TMDb API."""
+    API_KEY_TMDB = "TU_API_KEY_TMDB"
+    BASE_URL_TMDB = "https://api.themoviedb.org/3"
+    
+    genero_id = {
+        "Comedia": 35,
+        "Acción": 28,
+        "Animación": 16,
+        "Anime": 16,  # Consideramos animación para anime
+    }.get(genero, None)
+
+    if not genero_id:
+        return []
+
+    url = f"{BASE_URL_TMDB}/discover/movie?api_key={API_KEY_TMDB}&with_genres={genero_id}&primary_release_year={anio}&sort_by=popularity.desc"
     response = requests.get(url)
+
     if response.status_code == 200:
-        return response.json().get('results', [])
+        resultados = response.json().get('results', [])
+        top_10 = resultados[:10]
+        return [
+            {
+                "titulo": item['title'],
+                "popularidad": item['popularity'],
+                "duracion": item.get('runtime', 120),  # Valor predeterminado: 120 minutos
+                "id": item['id']
+            }
+            for item in top_10
+        ]
     return []
 
-def buscar_plataformas(id_pelicula):
-    """Busca plataformas de streaming para una película."""
-    url = f"{BASE_URL_TMDB}/movie/{id_pelicula}/watch/providers?api_key={API_KEY_TMDB}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get('results', {}).get('US', {}).get('flatrate', [])
-    return []
-
-def calcular_tiempo_total(lista):
-    """Calcula el tiempo total para ver las películas no vistas."""
-    return sum(item['duracion'] for item in lista if not item['visto'])
+def calcular_tiempo_total_y_orden(lista):
+    """Ordena la lista por popularidad y calcula el tiempo total."""
+    ordenada = sorted(lista, key=lambda x: x['popularidad'], reverse=True)
+    tiempo_total = sum(item['duracion'] for item in ordenada)
+    return ordenada, tiempo_total
 
 # ----- INTERFAZ DE USUARIO -----
-st.title("Gestor de Contenido: Películas y Series")
+st.title("Recomendador de Películas y Series")
 st.sidebar.title("Opciones")
 
-# Opciones del menú
-opcion = st.sidebar.selectbox("Selecciona una opción:", ["Gestionar lista", "Buscar información", "Calcular tiempo"])
+# Selección de género y año
+genero = st.sidebar.selectbox("Selecciona el género", ["Comedia", "Acción", "Animación", "Anime"])
+anio = st.sidebar.number_input("Selecciona el año", min_value=1900, max_value=2025, step=1, value=2023)
 
-if opcion == "Gestionar lista":
-    st.subheader("Gestionar lista de contenido")
-    
-    # Agregar contenido
-    with st.form("form_agregar_contenido"):
-        titulo = st.text_input("Título")
-        categoria = st.selectbox("Categoría", ["Comedia", "Acción", "Animación", "Anime"])
-        año = st.number_input("Año de emisión", min_value=1900, max_value=2025, step=1)
-        duracion = st.number_input("Duración (en minutos)", min_value=1, step=1)
-        visto = st.checkbox("¿Ya lo viste?")
-        submitted = st.form_submit_button("Agregar a la lista")
+# Buscar las 10 mejores películas o series
+if st.sidebar.button("Buscar Top 10"):
+    top_10 = buscar_top_10(genero, anio)
 
-        if submitted:
-            lista_contenido.append({
-                "titulo": titulo,
-                "categoria": categoria,
-                "año": año,
-                "duracion": duracion,
-                "visto": visto,
-                "prioridad": 0,
-                "plataforma": []
-            })
-            st.success(f"Agregado: {titulo}")
+    if top_10:
+        st.write(f"### Top 10 de {genero} en {anio}")
+        seleccionados = []
+        for item in top_10:
+            if st.checkbox(f"{item['titulo']} (Popularidad: {item['popularidad']})", key=item['id']):
+                seleccionados.append(item)
 
-    # Mostrar lista
-    if lista_contenido:
-        st.write("### Tu lista de contenido")
-        df = pd.DataFrame(lista_contenido)
-        st.table(df)
+        if seleccionados:
+            ordenada, tiempo_total = calcular_tiempo_total_y_orden(seleccionados)
 
-if opcion == "Buscar información":
-    st.subheader("Buscar información de películas y plataformas")
-    
-    # Buscar película
-    titulo_busqueda = st.text_input("Ingresa el título de la película/serie")
-    if st.button("Buscar"):
-        resultados = buscar_pelicula_titulo(titulo_busqueda)
-        if resultados:
-            for item in resultados:
-                st.write(f"**{item['title']}** ({item['release_date']}) - Popularidad: {item['popularity']}")
-                plataformas = buscar_plataformas(item['id'])
-                if plataformas:
-                    st.write("Disponible en:")
-                    for p in plataformas:
-                        st.write(f"- {p['provider_name']}")
-                else:
-                    st.write("No se encontraron plataformas de streaming.")
+            st.write("### Orden recomendado para ver:")
+            for idx, item in enumerate(ordenada, 1):
+                st.write(f"{idx}. {item['titulo']} - Duración: {item['duracion']} minutos")
+
+            st.write(f"### Tiempo total necesario: {tiempo_total} minutos")
         else:
-            st.warning("No se encontraron resultados.")
-
-if opcion == "Calcular tiempo":
-    st.subheader("Cálculo de tiempo total")
-    
-    if lista_contenido:
-        tiempo_total = calcular_tiempo_total(lista_contenido)
-        st.write(f"El tiempo total necesario para ver contenido no visto es: **{tiempo_total} minutos**.")
+            st.warning("Selecciona al menos una película o serie.")
     else:
-        st.warning("La lista está vacía. Por favor, agrega contenido primero.")
+        st.error("No se encontraron resultados. Intenta con otro género o año.")
+
