@@ -65,12 +65,11 @@ if st.sidebar.button("Buscar Top 10"):
         # Filtrar los elementos seleccionados
         seleccionados_data = [item for item in top_10 if f"{item['titulo']} (Popularidad: {item['popularidad']})" in seleccionados]
 
+        # Mostrar cálculo dinámico de duración total
         if seleccionados_data:
             tiempo_total = calcular_tiempo_total(seleccionados_data)
-
-            st.write("### Duración total para ver lo seleccionado:")
-            st.write(f"{tiempo_total:.2f} horas")
+            st.write(f"### Duración total para ver lo seleccionado: {tiempo_total:.2f} horas")
         else:
-            st.warning("Selecciona al menos una película o serie.")
+            st.write("### Duración total para ver lo seleccionado: 0 horas")
     else:
         st.error("No se encontraron resultados. Intenta con otro género o año.")
