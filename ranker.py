@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import pandas as pd
@@ -38,11 +37,9 @@ def buscar_top_10(genero, tipo, anio):
         ]
     return []
 
-def calcular_tiempo_total_y_orden(lista):
-    """Ordena la lista por popularidad y calcula el tiempo total."""
-    ordenada = sorted(lista, key=lambda x: x['popularidad'], reverse=True)
-    tiempo_total = sum(item['duracion'] * (item['episodios'] if 'episodios' in item else 1) for item in ordenada)
-    return ordenada, tiempo_total
+def calcular_tiempo_total(lista):
+    """Calcula el tiempo total en horas para la lista seleccionada."""
+    return sum((item['duracion'] * (item['episodios'] if 'episodios' in item else 1)) for item in lista) / 60
 
 # ----- INTERFAZ DE USUARIO -----
 st.title("Recomendador de Películas y Series")
@@ -59,20 +56,20 @@ if st.sidebar.button("Buscar Top 10"):
 
     if top_10:
         st.write(f"### Top 10 de {tipo} de {genero} en {anio}")
-        seleccionados = []
-        for item in top_10:
-            if st.checkbox(f"{item['titulo']} (Popularidad: {item['popularidad']})", key=item['id']):
-                seleccionados.append(item)
+        seleccionados = st.multiselect(
+            "Selecciona las películas o series que deseas ver:",
+            options=[f"{item['titulo']} (Popularidad: {item['popularidad']})" for item in top_10],
+            default=[]
+        )
 
-        if seleccionados:
-            ordenada, tiempo_total = calcular_tiempo_total_y_orden(seleccionados)
+        # Filtrar los elementos seleccionados
+        seleccionados_data = [item for item in top_10 if f"{item['titulo']} (Popularidad: {item['popularidad']})" in seleccionados]
 
-            st.write("### Orden recomendado para ver:")
-            for idx, item in enumerate(ordenada, 1):
-                total_duracion = item['duracion'] * (item['episodios'] if 'episodios' in item else 1)
-                st.write(f"{idx}. {item['titulo']} - Duración total: {total_duracion} minutos")
+        if seleccionados_data:
+            tiempo_total = calcular_tiempo_total(seleccionados_data)
 
-            st.write(f"### Tiempo total necesario: {tiempo_total} minutos")
+            st.write("### Duración total para ver lo seleccionado:")
+            st.write(f"{tiempo_total:.2f} horas")
         else:
             st.warning("Selecciona al menos una película o serie.")
     else:
